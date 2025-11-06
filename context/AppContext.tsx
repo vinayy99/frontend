@@ -1,77 +1,62 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Project, SkillSwap } from '../types';
-import * as api from '../services/api';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { User, Project, SkillSwap } from "../types";
+import * as api from "../services/api";
 
-interface CtxType {
-  users: User[];
-  projects: Project[];
-  skillSwaps: SkillSwap[];
-  currentUser: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  signup: (user: Omit<User, 'id' | 'avatar' | 'available'>) => Promise<boolean>;
-  proposeSkillSwap: (data: Omit<SkillSwap, 'id' | 'status' | 'fromUserId'>) => void;
-  updateSkillSwapStatus: (id: number, status: 'accepted' | 'declined') => void;
-}
+const AppContext = createContext<any>(null);
 
-const Ctx = createContext<CtxType | undefined>(undefined);
-
-export const AppProvider = ({ children }: { children: ReactNode }) => {
+export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [skillSwaps, setSkillSwaps] = useState<SkillSwap[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+  const [error, setError] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const load = async () => {
     try {
-      const [u, p] = await Promise.all([api.getUsers(), api.getProjects()]);
-      setUsers(u);
-      setProjects(p);
+      setUsers(await api.getUsers());
+      setProjects(await api.getProjects());
       if (token) setSkillSwaps(await api.getSkillSwaps(token));
     } catch {}
   };
 
-  useEffect(() => { refresh(); }, [token]);
+  useEffect(() => { load(); }, [token, currentUser]);
 
   const login = async (email: string, password: string) => {
-    const r = await api.login(email, password);
-    setCurrentUser(r.user);
-    setToken(r.token);
-    localStorage.setItem("token", r.token);
-    refresh();
-    return true;
+    try {
+      const result = await api.login(email, password);
+      setCurrentUser(result.user);
+      setToken(result.token);
+      localStorage.setItem("token", result.token);
+      load();
+    } catch {
+      setError("Invalid email or password");
+    }
   };
 
-  const logout = () => { setCurrentUser(null); setToken(null); localStorage.removeItem('token'); };
-
-  const signup = async (data: any) => {
-    const r = await api.register(data.name, data.email, data.password, data.skills, data.bio);
-    setCurrentUser(r.user);
-    setToken(r.token);
-    localStorage.setItem("token", r.token);
-    refresh();
-    return true;
+  const signup = async (name: string, email: string, password: string, skills: string, bio: string) => {
+    try {
+      const skillArr = skills.split(",").map(s => s.trim());
+      const result = await api.register(name, email, password, skillArr, bio);
+      setCurrentUser(result.user);
+      setToken(result.token);
+      localStorage.setItem("token", result.token);
+      load();
+    } catch {
+      setError("Signup failed");
+    }
   };
 
-  const proposeSkillSwap = async (data: any) => {
-    if (!token || !currentUser) return;
-    await api.proposeSkillSwap(data.toUserId, data.offeredSkill, data.requestedSkill, data.message, token);
-    refresh();
-  };
-
-  const updateSkillSwapStatus = async (id: number, status: 'accepted' | 'declined') => {
-    if (!token) return;
-    await api.updateSkillSwapStatus(id, status, token);
-    refresh();
-  };
+  const clearError = () => setError(null);
 
   return (
-    <Ctx.Provider value={{ users, projects, skillSwaps, currentUser, token, login, logout, signup, proposeSkillSwap, updateSkillSwapStatus }}>
+    <AppContext.Provider value={{
+      users, projects, skillSwaps, currentUser, token,
+      login, signup, clearError
+    }}>
       {children}
-    </Ctx.Provider>
+    </AppContext.Provider>
   );
 };
 
-export const useAppContext = () => useContext(Ctx)!;
+export const useAppContext = () => useContext(AppContext);

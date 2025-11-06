@@ -1,3 +1,5 @@
+// types.ts
+
 export interface User {
   id: number;
   name: string;
@@ -9,6 +11,7 @@ export interface User {
   available: boolean;
 }
 
+// Projects
 export interface Project {
   id: number;
   title: string;
@@ -18,6 +21,7 @@ export interface Project {
   members: number[];
 }
 
+// Skill Swap Core
 export type SkillSwapStatus = 'pending' | 'accepted' | 'declined';
 
 export interface SkillSwap {
@@ -28,7 +32,27 @@ export interface SkillSwap {
   requestedSkill: string;
   status: SkillSwapStatus;
   message: string;
+  fromUser?: User;
+  toUser?: User;
+  created_at?: string;
 }
 
+// Messaging inside swap chat
+export interface SkillSwapMessage {
+  id: number;
+  swap_id: number;
+  sender_id: number;
+  message: string;
+  created_at?: string;
+  sender_name?: string;
+  sender_avatar?: string;
+}
 
-
+// Swap status history
+export interface SkillSwapStatusHistory {
+  id: number;
+  swap_id: number;
+  status: SkillSwapStatus;
+  changed_by: number;
+  created_at?: string;
+}
